@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Advanced Table Watch + Multiple Alarms</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .clock-face {
+    aspect-ratio:1/1;
+    border-radius:9999px;
+    border:10px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(8px);
+    transition: transform 0.5s ease, box-shadow 0.6s ease;
+    position: relative;
+  }
+  .clock-face:hover {transform:scale(1.05) rotate(1deg); box-shadow:0 0 40px rgba(255,255,255,0.1);}
+  .hand {position:absolute; bottom:50%; left:50%; transform-origin:bottom center; transition: transform 0.2s cubic-bezier(.4,2,.3,1);}
+  .table-card {box-shadow:0 20px 40px rgba(0,0,0,0.4); transition:all 0.4s ease;}
+  .table-card:hover {box-shadow:0 25px 60px rgba(0,0,0,0.6); transform:translateY(-4px);}
+  @keyframes pulse {0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.3);opacity:0.6;}}
+  .pulse-dot {animation: pulse 2s infinite;}
+  @media(max-width:640px){.clock-face{width:200px!important;} #digital{font-size:1.5rem;} .table-card{padding:1.25rem;}}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 to-sky-800 flex items-center justify-center p-6 transition-all duration-700">
+
+<div class="table-card bg-white/5 rounded-2xl p-6 max-w-sm w-full backdrop-blur-md border border-white/10">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-white text-2xl font-semibold">Vai vai Rastrurent Clock</h1>
+      <p class="text-slate-300 text-sm">Creat by Sheikh Srabon</p>
+    </div>
+    <div id="date" class="text-slate-300 text-sm text-right"></div>
+  </div>
+
+  <div class="flex flex-col items-center gap-6">
+    <!-- Clock -->
+    <div class="clock-face w-[260px] sm:w-[300px] bg-gradient-to-br from-slate-700/40 to-slate-800/40 flex items-center justify-center">
+      <!-- 12 Hour Marks -->
+      <div class="absolute inset-0 flex items-center justify-center">
+        <svg viewBox="0 0 200 200" class="w-[95%] h-[95%]">
+          <g fill="white" opacity="0.7">
+            <circle cx="100" cy="20" r="3"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(30,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(60,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(90,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(120,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(150,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(180,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(210,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(240,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(270,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(300,100,100)"/>
+            <circle cx="100" cy="20" r="3" transform="rotate(330,100,100)"/>
+          </g>
+        </svg>
+      </div>
+      <div class="absolute w-4 h-4 bg-rose-400 rounded-full z-30 pulse-dot"></div>
+      <div id="hour" class="hand bg-slate-100 w-[6px] h-[60px] sm:h-[70px] rounded-md z-10"></div>
+      <div id="minute" class="hand bg-white w-[4px] h-[90px] sm:h-[110px] rounded-md z-20"></div>
+      <div id="second" class="hand bg-rose-500 w-[2px] h-[110px] sm:h-[130px] rounded-md z-30 shadow-md shadow-rose-400/30"></div>
+      <div class="absolute w-[95%] h-[95%] rounded-full border border-white/10"></div>
+    </div>
+
+    <!-- Digital + buttons -->
+    <div class="w-full flex items-center justify-between gap-2">
+      <div class="flex-1">
+        <div id="digital" class="text-white text-3xl font-mono leading-none">00:00:00</div>
+        <div id="ampm" class="text-slate-300 text-sm mt-1">AM</div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button id="toggleFormat" class="px-3 py-2 bg-white/10 text-white rounded-lg text-sm hover:bg-white/20 transition">12 / 24</button>
+        <button id="theme" class="px-3 py-2 bg-white/10 text-white rounded-lg text-sm hover:bg-white/20 transition">Style</button>
+        <button id="setAlarmBtn" class="px-3 py-2 bg-white/10 text-white rounded-lg text-sm hover:bg-white/20 transition">Set Alarm</button>
+      </div>
+    </div>
+    <p class="text-slate-400 text-xs mt-2">SAMSUNG s23 Ultra</p>
+  </div>
+</div>
+
+<!-- Audio -->
+<audio id="tickSound" src="https://www.soundjay.com/clock/sounds/clock-ticking-1.mp3" preload="auto"></audio>
+<audio id="alarmSound" src="https://www.soundjay.com/button/beep-07.mp3" preload="auto"></audio>
+
+<script>
+const hourEl = document.getElementById('hour');
+const minuteEl = document.getElementById('minute');
+const secondEl = document.getElementById('second');
+const digitalEl = document.getElementById('digital');
+const ampmEl = document.getElementById('ampm');
+const dateEl = document.getElementById('date');
+const toggleBtn = document.getElementById('toggleFormat');
+const themeBtn = document.getElementById('theme');
+const setAlarmBtn = document.getElementById('setAlarmBtn');
+
+const tickSound = document.getElementById('tickSound');
+const alarmSound = document.getElementById('alarmSound');
+
+let use24 = false;
+let themeMode = 0;
+let alarms = []; // multiple alarms
+
+function updateClock() {
+  const now = new Date();
+  const sec = now.getSeconds();
+  const min = now.getMinutes();
+  const hr = now.getHours();
+
+  // analog hands
+  const secDeg = sec*6;
+  const minDeg = min*6 + sec*0.1;
+  const hrDeg = (hr%12)*30 + min*0.5;
+  secondEl.style.transform=`translate(-50%,0) rotate(${secDeg}deg)`;
+  minuteEl.style.transform=`translate(-50%,0) rotate(${minDeg}deg)`;
+  hourEl.style.transform=`translate(-50%,0) rotate(${hrDeg}deg)`;
+
+  // digital
+  let displayH = hr; let ampm='AM';
+  if(!use24){ ampm = hr>=12?'PM':'AM'; displayH=hr%12||12; }
+  const pad=n=>String(n).padStart(2,'0');
+  digitalEl.textContent=`${pad(displayH)}:${pad(min)}:${pad(sec)}`;
+  ampmEl.textContent=use24?'':ampm;
+
+  // date
+  const opts={weekday:'short',month:'short',day:'numeric'};
+  dateEl.textContent=now.toLocaleDateString('bn-BD',opts);
+
+  // tick sound
+  tickSound.currentTime=0;
+  tickSound.play().catch(()=>{});
+
+  // check alarms
+  alarms.forEach((alarm,index)=>{
+    const [aH,aM]=alarm.time.split(':').map(Number);
+    if(hr===aH && min===aM && sec===0 && !alarm.triggered){
+      alarmSound.play();
+      const snooze = confirm(`⏰ Alarm! ${alarm.time}\nPress OK to Snooze 5 min`);
+      if(snooze){
+        const newTime=new Date();
+        newTime.setMinutes(newTime.getMinutes()+5);
+        alarm.time=`${newTime.getHours()}:${newTime.getMinutes()}`;
+        alarm.triggered=false;
+      }else{
+        alarm.triggered=true;
+      }
+    }
+  });
+}
+
+setInterval(updateClock,1000);
+updateClock();
+
+toggleBtn.addEventListener('click',()=>{use24=!use24; toggleBtn.textContent=use24?'24h':'12h'; updateClock();});
+themeBtn.addEventListener('click',()=>{
+  themeMode=(themeMode+1)%3;
+  const body=document.body;
+  const themes=['bg-gradient-to-br from-slate-900 to-sky-800','bg-gradient-to-br from-amber-900 to-rose-700','bg-gradient-to-br from-emerald-900 to-slate-700'];
+  body.className=`min-h-screen ${themes[themeMode]} flex items-center justify-center p-6 transition-all duration-700`;
+});
+
+setAlarmBtn.addEventListener('click',()=>{
+  const userTime = prompt('Set Alarm Time (HH:MM, 24h format)');
+  if(userTime && /^\d{1,2}:\d{2}$/.test(userTime)){
+    alarms.push({time:userTime,triggered:false});
+    alert(`✅ Alarm set for ${userTime}`);
+  }else{ alert('❌ Invalid time format'); }
+});
+</script>
+</body>
+</html>
